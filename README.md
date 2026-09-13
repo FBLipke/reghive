@@ -117,6 +117,11 @@ Windows BCD files contain boot entries identified by GUIDs:
 | `BCD_ELEM_TFTP_WINDOWSIZE` | DWORD | TFTP Windowsize |
 | `BCD_ELEM_NET_VARSIZE` | DWORD | Variable Window Size (0/1) |
 
+## Complete BCD Guide
+
+For a complete guide to all BCD objects and elements, see [DVD_BCD_GUIDE.md](DVD_BCD_GUIDE.md).
+
+
 ## Format
 
 Windows Registry Hive (REGF) format:
