@@ -43,6 +43,125 @@ namespace RegHive {
         return m_data.data() + abs;
     }
     
+    uint8_t* Parser::GetPtrWritable(int32_t offset) {
+        if (offset < 0) return nullptr;
+        uint32_t abs = m_hbin_base + offset;
+        if (abs >= m_data.size()) return nullptr;
+        return m_data.data() + abs;
+    }
+    
+    Key* Parser::FindKey(const std::string& path) {
+        if (!m_root) return nullptr;
+        if (path.empty()) return m_root.get();
+        
+        std::vector<std::string> parts;
+        std::string current;
+        for (char c : path) {
+            if (c == '\\' || c == '/') {
+                if (!current.empty()) {
+                    parts.push_back(current);
+                    current.clear();
+                }
+            } else {
+                current += c;
+            }
+        }
+        if (!current.empty()) parts.push_back(current);
+        
+        Key* k = m_root.get();
+        for (const auto& part : parts) {
+            if (part.empty()) continue;
+            k = k->FindSubkey(part);
+            if (!k) return nullptr;
+        }
+        return k;
+    }
+    
+    bool Parser::GetDWORD(const std::string& path, const std::string& name, uint32_t* value) {
+        Key* key = FindKey(path);
+        if (!key) return false;
+        Value* val = key->FindValue(name);
+        if (!val) return false;
+        *value = val->AsDWORD();
+        return true;
+    }
+    
+    bool Parser::GetString(const std::string& path, const std::string& name, std::wstring* value) {
+        Key* key = FindKey(path);
+        if (!key) return false;
+        Value* val = key->FindValue(name);
+        if (!val) return false;
+        *value = val->AsWSTRING();
+        return true;
+    }
+    
+    bool Parser::SetDWORD(const std::string& path, const std::string& name, uint32_t value) {
+        Key* key = FindKey(path);
+        if (!key) {
+            printf("RegHive: Key not found: %s\n", path.c_str());
+            return false;
+        }
+        Value* val = key->FindValue(name);
+        if (!val) {
+            printf("RegHive: Value not found: %s\n", name.c_str());
+            return false;
+        }
+        
+        // Modify VK record in-place
+        uint8_t* vk = GetPtrWritable(val->vk_offset);
+        if (!vk) return false;
+        
+        // VK structure: [cell_size:4][magic:2][name_len:2][data_size:4][data_offset:4][type:4][flags:2][name...]
+        // For inline DWORD: data_size = 0x80000004 (bit31=1 inline, low31=4 bytes)
+        *(uint32_t*)(vk + 8) = 0x80000004;  // data_size = inline 4 bytes
+        *(uint32_t*)(vk + 12) = value;       // data_offset contains the actual DWORD
+        *(uint32_t*)(vk + 16) = 4;           // value_type = REG_DWORD
+        
+        // Update in-memory copy
+        val->data.assign(reinterpret_cast<const uint8_t*>(&value),
+                        reinterpret_cast<const uint8_t*>(&value) + 4);
+        
+        return true;
+    }
+    
+    bool Parser::SetString(const std::string& path, const std::string& name, const std::wstring& value) {
+        Key* key = FindKey(path);
+        if (!key) {
+            printf("RegHive: Key not found: %s\n", path.c_str());
+            return false;
+        }
+        Value* val = key->FindValue(name);
+        if (!val) {
+            printf("RegHive: Value not found: %s\n", name.c_str());
+            return false;
+        }
+        
+        uint8_t* vk = GetPtrWritable(val->vk_offset);
+        if (!vk) return false;
+        
+        // For strings: update inline data (REG_SZ = type 1)
+        // String format: [4-byte size][UTF-16 LE string with null terminator]
+        size_t str_bytes = (value.length() + 1) * sizeof(wchar_t);
+        uint32_t data_size_raw = 0x80000000 | (uint32_t)(str_bytes + 4);
+        
+        *(uint32_t*)(vk + 8) = data_size_raw;  // data_size with inline flag
+        *(uint32_t*)(vk + 16) = 1;             // value_type = REG_SZ
+        
+        // Write string after VK header (8-byte aligned after name)
+        uint16_t name_len = *reinterpret_cast<uint16_t*>(vk + 6);
+        size_t data_off = 20 + name_len;
+        data_off = (data_off + 7) & ~7;  // 8-byte align
+        
+        // Write 4-byte size prefix
+        *(uint32_t*)(vk + data_off) = (uint32_t)str_bytes;
+        
+        // Write UTF-16 LE string
+        wchar_t* dst = (wchar_t*)(vk + data_off + 4);
+        wcscpy(dst, value.c_str());
+        
+        return true;
+    }
+    
     bool Parser::Parse() {
         if (m_data.size() < 512) {
             printf("Error: File too small\n");
@@ -191,6 +310,7 @@ namespace RegHive {
             bool is_inline = (data_size_raw & 0x80000000) != 0;
             
             Value val;
+            val.vk_offset = vk_off;  // Store offset for in-place modification
             val.type = type;
             
             // Name starts at vk + 20 (after 20 bytes of header)

@@ -115,6 +115,7 @@ namespace RegHive {
         std::string name;
         ValueType type;
         std::vector<uint8_t> data;
+        int32_t vk_offset;  // File offset of VK record (for in-place modification)
         
         uint32_t AsDWORD() const;
         uint64_t AsQWORD() const;
@@ -130,7 +131,9 @@ namespace RegHive {
         std::vector<std::shared_ptr<Key>> subkeys;
         
         const Value* FindValue(const std::string& n) const;
+        Value* FindValue(const std::string& n);
         const Key* FindSubkey(const std::string& n) const;
+        Key* FindSubkey(const std::string& n);
     };
     
     class Parser {
@@ -144,7 +147,17 @@ namespace RegHive {
         bool Parse();
         
         const Key* GetRoot() const { return m_root.get(); }
+        Key* GetRoot() { return m_root.get(); }
         const Key* FindKey(const std::string& path) const;
+        Key* FindKey(const std::string& path);
+        
+        // Read values
+        bool GetDWORD(const std::string& path, const std::string& name, uint32_t* value);
+        bool GetString(const std::string& path, const std::string& name, std::wstring* value);
+        
+        // Modify values in-place
+        bool SetDWORD(const std::string& path, const std::string& name, uint32_t value);
+        bool SetString(const std::string& path, const std::string& name, const std::wstring& value);
         
         void Dump() const;
         
@@ -159,6 +172,7 @@ namespace RegHive {
         bool m_valid;
         
         const uint8_t* GetPtr(int32_t offset) const;
+        uint8_t* GetPtrWritable(int32_t offset);
         std::shared_ptr<Key> ParseNKData(const uint8_t* nk, int32_t offset);
         void ParseValues(std::shared_ptr<Key> key, int32_t offset, uint32_t count);
         void ParseSubkeys(std::shared_ptr<Key> parent, int32_t offset, uint32_t count);
@@ -198,6 +212,18 @@ namespace RegHive {
     }
     
     inline const Key* Key::FindSubkey(const std::string& n) const {
+        for (const auto& s : subkeys) {
+            if (s->name == n) return s.get();
+        }
+        return nullptr;
+    }
+    
+    inline Value* Key::FindValue(const std::string& n) {
+        auto it = values.find(n);
+        return (it != values.end()) ? &it->second : nullptr;
+    }
+    
+    inline Key* Key::FindSubkey(const std::string& n) {
         for (const auto& s : subkeys) {
             if (s->name == n) return s.get();
         }
