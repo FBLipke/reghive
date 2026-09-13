@@ -2,19 +2,21 @@
 
 This guide documents all 9 boot objects in `dvd.bcd` with examples how to read/write them using the RegHive API.
 
+**Tip:** Use `#include "BCD/BCDEnums.h"` for readable constants instead of magic numbers!
+
 ## BCD Objects Overview
 
 | Object ID | Type | Description | Common Elements |
 |-----------|------|------------|-----------------|
 | `{0ce4991b-e6b3-4b16-b23c-5e0d9250e5d9}` | Library | Boot Entries | 16000020 |
-| `{4636856e-540f-4170-a130-a84776f4c654}` | Library | Global Boot Managers | 15000011, 15000013, 15000014 |
+| `BCD_OBJ_BOOT_MANAGERS` | Library | Global Boot Managers | 15000011, 15000013, 15000014 |
 | `{6efb52bf-1766-41db-a6b3-0ee5eff72bd7}` | App | EFI Application | 14000006 |
-| `{7619dcc8-fafe-11d9-b411-000476eba25f}` | App | EFI Boot Loader | 31000003, 32000004 |
-| `{7619dcc9-fafe-11d9-b411-000476eba25f}` | **OS Loader** | Windows Setup/PE | 11000001, 12000002, 14000006, 25000004, etc. |
+| `BCD_OBJ_EFI_BOOT_LOADER` | App | EFI Boot Loader | 31000003, 32000004 |
+| `BCD_OBJ_OS_LOADER` | **OS Loader** | Windows Setup/PE | 11000001, 12000002, 14000006, 25000004, etc. |
 | `{7ea2e1ac-2e61-4728-aaa3-896d9d0a9f0e}` | App | ??? | 14000006 |
-| `{7ff607e0-4395-11db-b0de-0800200c9a66}` | App | Hypervisor | 12000004, 250000f3/f4/f5 |
-| `{9dea862c-5cdd-4e70-acc1-f32b344d4795}` | **Boot Manager** | Windows Boot Manager | 12000004, 23000003, 24000001, 25000004 |
-| `{b2721d73-1db4-4c62-bf78-c548a880142d}` | App | Memory Diagnostic | 11000001, 12000002, 14000006 |
+| `BCD_OBJ_HYPERVISOR` | App | Hypervisor | 12000004, 250000f3/f4/f5 |
+| `BCD_OBJ_BOOT_MANAGER` | **Boot Manager** | Windows Boot Manager | 12000004, 23000003, 24000001, 25000004 |
+| `BCD_OBJ_MEM_DIAGNOSTIC` | App | Memory Diagnostic | 11000001, 12000002, 14000006 |
 
 ## Common BCD Element IDs
 
@@ -70,7 +72,7 @@ printf("16000020 size: %zu bytes\n", val->data.size());
 
 ---
 
-## Object 2: Library - `{4636856e-540f-4170-a130-a84776f4c654}`
+## Object 2: Library - `BCD_OBJ_BOOT_MANAGERS`
 
 **Type:** 537919488 (0x20100000) = `BCD_BOOT_LIB`
 
@@ -79,7 +81,7 @@ printf("16000020 size: %zu bytes\n", val->data.size());
 ### Read
 
 ```cpp
-const char* guid = "{4636856e-540f-4170-a130-a84776f4c654}";
+const char* guid = "BCD_OBJ_BOOT_MANAGERS";
 RegHive::Key* obj = hive.FindKey(guid);
 RegHive::Key* elem = obj->FindSubkey("Elements");
 
@@ -130,7 +132,7 @@ printf("RAM Disk modifier: %zu bytes\n", val->data.size());
 
 ---
 
-## Object 4: EFI Boot Loader - `{7619dcc8-fafe-11d9-b411-000476eba25f}`
+## Object 4: EFI Boot Loader - `BCD_OBJ_EFI_BOOT_LOADER`
 
 **Type:** 805306368 (0x30200000) = `BCD_BOOT_APP`
 
@@ -139,7 +141,7 @@ printf("RAM Disk modifier: %zu bytes\n", val->data.size());
 ### Read
 
 ```cpp
-const char* guid = "{7619dcc8-fafe-11d9-b411-000476eba25f}";
+const char* guid = "BCD_OBJ_EFI_BOOT_LOADER";
 RegHive::Key* obj = hive.FindKey(guid);
 RegHive::Key* elem = obj->FindSubkey("Elements");
 
@@ -158,7 +160,7 @@ RegHive::Key* device = elem->FindSubkey("31000003");
 
 ```cpp
 // Change bootfile
-hive.SetString("Objects/{7619dcc8-fafe-11d9-b411-000476eba25f}/Elements/32000004", 
+hive.SetString("Objects/BCD_OBJ_EFI_BOOT_LOADER/Elements/32000004", 
                "Element", L"\\boot\\newboot.sd");
 
 // Save
@@ -168,7 +170,7 @@ out.write(reinterpret_cast<const char*>(hive.Data()), hive.Size());
 
 ---
 
-## Object 5: OS Loader - `{7619dcc9-fafe-11d9-b411-000476eba25f}` ⭐
+## Object 5: OS Loader - `BCD_OBJ_OS_LOADER` ⭐
 
 **Type:** 270532611 (0x10200003) = `BCD_OS_LOADER`
 
@@ -177,7 +179,7 @@ out.write(reinterpret_cast<const char*>(hive.Data()), hive.Size());
 ### Read
 
 ```cpp
-const char* guid = "{7619dcc9-fafe-11d9-b411-000476eba25f}";
+const char* guid = "BCD_OBJ_OS_LOADER";
 RegHive::Key* obj = hive.FindKey(guid);
 
 // Read all elements
@@ -207,19 +209,19 @@ printf("TFTP Blocksize: %u\n", tftp_block);
 
 ```cpp
 // Change bootfile
-hive.SetString("Objects/{7619dcc9-fafe-11d9-b411-000476eba25f}/Elements/12000002", 
+hive.SetString("Objects/BCD_OBJ_OS_LOADER/Elements/12000002", 
                "Element", L"\\windows\\system32\\boot\\winload.efi");
 
 // Change description
-hive.SetString("Objects/{7619dcc9-fafe-11d9-b411-000476eba25f}/Elements/12000004", 
+hive.SetString("Objects/BCD_OBJ_OS_LOADER/Elements/12000004", 
                "Element", L"Windows PE");
 
 // Set TFTP Blocksize
-hive.SetDWORD("Objects/{7619dcc9-fafe-11d9-b411-000476eba25f}/Elements/25000004", 
+hive.SetDWORD("Objects/BCD_OBJ_OS_LOADER/Elements/25000004", 
               "Element", 4096);
 
 // Disable recovery
-hive.SetDWORD("Objects/{7619dcc9-fafe-11d9-b411-000476eba25f}/Elements/26000022", 
+hive.SetDWORD("Objects/BCD_OBJ_OS_LOADER/Elements/26000022", 
               "Element", 0);
 
 // Save
@@ -238,7 +240,7 @@ int main() {
     RegHive::Parser hive;
     hive.Load("dvd.bcd");
     
-    const char* os_guid = "{7619dcc9-fafe-11d9-b411-000476eba25f}";
+    const char* os_guid = "BCD_OBJ_OS_LOADER";
     
     // Read current settings
     std::wstring desc, loader;
@@ -287,7 +289,7 @@ printf("RAM disk settings: %zu bytes\n", val->data.size());
 
 ---
 
-## Object 7: Hypervisor - `{7ff607e0-4395-11db-b0de-0800200c9a66}`
+## Object 7: Hypervisor - `BCD_OBJ_HYPERVISOR`
 
 **Type:** 538968067 (0x20200003)
 
@@ -296,7 +298,7 @@ printf("RAM disk settings: %zu bytes\n", val->data.size());
 ### Read
 
 ```cpp
-const char* guid = "{7ff607e0-4395-11db-b0de-0800200c9a66}";
+const char* guid = "BCD_OBJ_HYPERVISOR";
 RegHive::Key* obj = hive.FindKey(guid);
 RegHive::Key* elem = obj->FindSubkey("Elements");
 
@@ -322,17 +324,17 @@ for (auto& sk : elem->subkeys) {
 ```cpp
 // Modify hypervisor settings
 // 250000f3, 250000f4, 250000f5 are hypervisor-specific DWORDs
-hive.SetDWORD("Objects/{7ff607e0-4395-11db-b0de-0800200c9a66}/Elements/250000f3", 
+hive.SetDWORD("Objects/BCD_OBJ_HYPERVISOR/Elements/250000f3", 
               "Element", 0);
-hive.SetDWORD("Objects/{7ff607e0-4395-11db-b0de-0800200c9a66}/Elements/250000f4", 
+hive.SetDWORD("Objects/BCD_OBJ_HYPERVISOR/Elements/250000f4", 
               "Element", 0);
-hive.SetDWORD("Objects/{7ff607e0-4395-11db-b0de-0800200c9a66}/Elements/250000f5", 
+hive.SetDWORD("Objects/BCD_OBJ_HYPERVISOR/Elements/250000f5", 
               "Element", 0);
 ```
 
 ---
 
-## Object 8: Boot Manager - `{9dea862c-5cdd-4e70-acc1-f32b344d4795}` ⭐
+## Object 8: Boot Manager - `BCD_OBJ_BOOT_MANAGER` ⭐
 
 **Type:** 269484034 (0x10000002) = `BCD_BOOT_MANAGER`
 
@@ -341,7 +343,7 @@ hive.SetDWORD("Objects/{7ff607e0-4395-11db-b0de-0800200c9a66}/Elements/250000f5"
 ### Read
 
 ```cpp
-const char* guid = "{9dea862c-5cdd-4e70-acc1-f32b344d4795}";
+const char* guid = "BCD_OBJ_BOOT_MANAGER";
 
 // Read boot manager name
 std::wstring name;
@@ -375,15 +377,15 @@ printf("TFTP Blocksize: %u\n", bs);
 
 ```cpp
 // Change boot manager name
-hive.SetString("Objects/{9dea862c-5cdd-4e70-acc1-f32b344d4795}/Elements/12000004", 
+hive.SetString("Objects/BCD_OBJ_BOOT_MANAGER/Elements/12000004", 
                "Element", L" Mein Boot Manager");
 
 // Set locale
-hive.SetString("Objects/{9dea862c-5cdd-4e70-acc1-f32b344d4795}/Elements/12000005", 
+hive.SetString("Objects/BCD_OBJ_BOOT_MANAGER/Elements/12000005", 
                "Element", L"de-DE");
 
 // Set TFTP Blocksize for network boot
-hive.SetDWORD("Objects/{9dea862c-5cdd-4e70-acc1-f32b344d4795}/Elements/25000004", 
+hive.SetDWORD("Objects/BCD_OBJ_BOOT_MANAGER/Elements/25000004", 
               "Element", 16384);
 ```
 
@@ -393,18 +395,18 @@ hive.SetDWORD("Objects/{9dea862c-5cdd-4e70-acc1-f32b344d4795}/Elements/25000004"
 // 24000001 contains the default boot entry GUID
 // To set a new default, modify the binary data at offset+12
 RegHive::Key* def = hive.FindKey(
-    "Objects/{9dea862c-5cdd-4e70-acc1-f32b344d4795}/Elements/24000001");
+    "Objects/BCD_OBJ_BOOT_MANAGER/Elements/24000001");
 RegHive::Value* val = def->FindValue("Element");
 
 // The GUID is stored at the beginning of val->data
 // Replace with desired boot entry GUID
-const char* new_default = "{7619dcc9-fafe-11d9-b411-000476eba25f}";
+const char* new_default = "BCD_OBJ_OS_LOADER";
 // Note: Binary GUID modification requires careful byte handling
 ```
 
 ---
 
-## Object 9: Memory Diagnostic - `{b2721d73-1db4-4c62-bf78-c548a880142d}`
+## Object 9: Memory Diagnostic - `BCD_OBJ_MEM_DIAGNOSTIC`
 
 **Type:** 270532613 (0x10200005) = `BCD_MEMDIAG`
 
@@ -413,7 +415,7 @@ const char* new_default = "{7619dcc9-fafe-11d9-b411-000476eba25f}";
 ### Read
 
 ```cpp
-const char* guid = "{b2721d73-1db4-4c62-bf78-c548a880142d}";
+const char* guid = "BCD_OBJ_MEM_DIAGNOSTIC";
 
 std::wstring name, desc, locale;
 hive.GetString(guid, "12000004", &name);
@@ -431,11 +433,11 @@ printf("Locale: %S\n", locale.c_str());
 
 ```cpp
 // Change memory diagnostic path
-hive.SetString("Objects/{b2721d73-1db4-4c62-bf78-c548a880142d}/Elements/12000002", 
+hive.SetString("Objects/BCD_OBJ_MEM_DIAGNOSTIC/Elements/12000002", 
                "Element", L"\\Boot\\memtest.exe");
 
 // Rename
-hive.SetString("Objects/{b2721d73-1db4-4c62-bf78-c548a880142d}/Elements/12000004", 
+hive.SetString("Objects/BCD_OBJ_MEM_DIAGNOSTIC/Elements/12000004", 
                "Element", L"Memory Test Pro");
 ```
 
@@ -458,7 +460,7 @@ int main() {
     // ============================================
     // 1. Modify Boot Manager
     // ============================================
-    const char* bm_guid = "{9dea862c-5cdd-4e70-acc1-f32b344d4795}";
+    const char* bm_guid = "BCD_OBJ_BOOT_MANAGER";
     
     hive.SetString(bm_guid, "12000004", L"WDS Boot");           // Name
     hive.SetString(bm_guid, "12000005", L"en-US");             // Locale
@@ -467,7 +469,7 @@ int main() {
     // ============================================
     // 2. Modify OS Loader (Windows Setup)
     // ============================================
-    const char* os_guid = "{7619dcc9-fafe-11d9-b411-000476eba25f}";
+    const char* os_guid = "BCD_OBJ_OS_LOADER";
     
     hive.SetString(os_guid, "12000004", L"Windows PE (Network)"); // Description
     hive.SetString(os_guid, "12000005", L"en-US");                // Locale
@@ -478,7 +480,7 @@ int main() {
     // ============================================
     // 3. Modify EFI Boot Loader
     // ============================================
-    const char* efi_guid = "{7619dcc8-fafe-11d9-b411-000476eba25f}";
+    const char* efi_guid = "BCD_OBJ_EFI_BOOT_LOADER";
     
     hive.SetString(efi_guid, "32000004", L"\\Boot\\boot.sdi");   // Bootfile
     
