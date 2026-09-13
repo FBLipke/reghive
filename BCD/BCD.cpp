@@ -247,9 +247,97 @@ namespace BCD {
     }
     
     bool Builder::SetTFTPSettings(const char* ramdisk_guid, const TFTPSettings& settings) {
+        // Load BCD data into RegHive parser
+        if (m_data.empty()) {
+            printf("BCDBuilder: No BCD data loaded\n");
+            return false;
+        }
+        
+        RegHive::Parser hive;
+        if (!hive.Load(m_data.data(), m_data.size())) {
+            printf("BCDBuilder: Cannot parse BCD data\n");
+            return false;
+        }
+        
+        // BCD structure: Objects\{guid}\Elements\{element_id}\Element (value)
+        // Element subkey names are just the hex ID, e.g., "35000007"
+        std::string obj_path = std::string("Objects\\") + ramdisk_guid + "\\Elements";
+        
+        printf("BCDBuilder: Setting TFTP for %s\n", obj_path.c_str());
+        
+        bool success = true;
+        
+        // Set blocksize (Element 0x35000007)
+        if (settings.blocksize > 0) {
+            char elem_id[32];
+            snprintf(elem_id, sizeof(elem_id), "%08X", 
+                    (unsigned int)Elements::Device::RAMDISK_TFTP_BLOCKSIZE);
+            std::string full_path = obj_path + "\\" + elem_id;
+            
+            if (hive.SetDWORD(full_path, "Element", settings.blocksize)) {
+                printf("BCDBuilder: Set blocksize = %u at %s\n", settings.blocksize, full_path.c_str());
+            } else {
+                printf("BCDBuilder: WARNING - Could not set blocksize at %s\n", full_path.c_str());
+                success = false;
+            }
+        }
+        
+        // Set windowsize (Element 0x35000008)
+        if (settings.windowsize > 0) {
+            char elem_id[32];
+            snprintf(elem_id, sizeof(elem_id), "%08X",
+                    (unsigned int)Elements::Device::RAMDISK_TFTP_WINDOWSIZE);
+            std::string full_path = obj_path + "\\" + elem_id;
+            
+            if (hive.SetDWORD(full_path, "Element", settings.windowsize)) {
+                printf("BCDBuilder: Set windowsize = %u at %s\n", settings.windowsize, full_path.c_str());
+            } else {
+                printf("BCDBuilder: WARNING - Could not set windowsize at %s\n", full_path.c_str());
+                success = false;
+            }
+        }
+        
+        // Set varwindow (Element 0x3600000B) - boolean (optional, may not exist in all BCDs)
+        {
+            char elem_id[32];
+            snprintf(elem_id, sizeof(elem_id), "%08X",
+                    (unsigned int)Elements::Device::RAMDISK_TFTP_VAR_WINDOW);
+            std::string full_path = obj_path + "\\" + elem_id;
+            
+            uint32_t val = settings.varwindow ? 1 : 0;
+            if (hive.SetDWORD(full_path, "Element", val)) {
+                printf("BCDBuilder: Set varwindow = %s at %s\n", 
+                       settings.varwindow ? "ON" : "OFF", full_path.c_str());
+            } else {
+                printf("BCDBuilder: NOTE - varwindow element not found (optional)\n");
+                // Don't fail for optional elements
+            }
+        }
+        
+        // Set bootfile (Element 0x1200004A) - string (PATH element)
+        if (!settings.bootfile.empty()) {
+            char elem_id[32];
+            snprintf(elem_id, sizeof(elem_id), "%08X",
+                    (unsigned int)Elements::Generic::PATH);
+            std::string full_path = obj_path + "\\" + elem_id;
+            
+            if (hive.SetString(full_path, "Element", settings.bootfile)) {
+                printf("BCDBuilder: Set bootfile = %S at %s\n", settings.bootfile.c_str(), full_path.c_str());
+            } else {
+                printf("BCDBuilder: WARNING - Could not set bootfile at %s\n", full_path.c_str());
+                success = false;
+            }
+        }
+        
+        if (success) {
+            // Get modified binary data
+            m_data.assign(hive.Data(), hive.Data() + hive.Size());
+            printf("BCDBuilder: BCD data updated (%zu bytes)\n", m_data.size());
+        }
+        
         m_objects[ramdisk_guid] = settings;
-        m_modified = true;
-        return true;
+        m_modified = success;
+        return success;
     }
     
     bool Builder::Save(const char* filename) {

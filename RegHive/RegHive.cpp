@@ -107,14 +107,17 @@ namespace RegHive {
             return false;
         }
         
-        // Modify VK record in-place
+        // Modify VK record in-place at vk_offset
         uint8_t* vk = GetPtrWritable(val->vk_offset);
         if (!vk) return false;
         
-        // VK structure: [cell_size:4][magic:2][name_len:2][data_size:4][data_offset:4][type:4][flags:2][name...]
+        // VK structure (relative to vk_offset):
+        // [cell_size:4 at offset+0][magic:2 at offset+4][name_len:2 at offset+6]
+        // [data_size:4 at offset+8][data_offset:4 at offset+12][type:4 at offset+16][flags:2 at offset+20][name at offset+22...]
         // For inline DWORD: data_size = 0x80000004 (bit31=1 inline, low31=4 bytes)
+        // data_offset field at offset+12 CONTAINS the actual DWORD value directly
         *(uint32_t*)(vk + 8) = 0x80000004;  // data_size = inline 4 bytes
-        *(uint32_t*)(vk + 12) = value;       // data_offset contains the actual DWORD
+        *(uint32_t*)(vk + 12) = value;       // data_offset contains the actual DWORD value
         *(uint32_t*)(vk + 16) = 4;           // value_type = REG_DWORD
         
         // Update in-memory copy
@@ -158,6 +161,11 @@ namespace RegHive {
         // Write UTF-16 LE string
         wchar_t* dst = (wchar_t*)(vk + data_off + 4);
         wcscpy(dst, value.c_str());
+        
+        // Update in-memory copy
+        val->data.resize(4 + str_bytes);
+        *(uint32_t*)val->data.data() = (uint32_t)str_bytes;
+        memcpy(val->data.data() + 4, dst, str_bytes);
         
         return true;
     }

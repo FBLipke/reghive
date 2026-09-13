@@ -121,6 +121,7 @@ namespace RegHive {
         uint64_t AsQWORD() const;
         bool AsBOOL() const;
         std::wstring AsWSTRING() const;
+        std::string AsSTRING() const;
     };
     
     struct Key {
@@ -182,10 +183,36 @@ namespace RegHive {
     };
     
     inline uint32_t Value::AsDWORD() const {
+        // Inline DWORD: data contains the raw value bytes (copied from VK data_offset field)
         if (type == ValueType::REG_DWORD && data.size() >= 4) {
             return *reinterpret_cast<const uint32_t*>(data.data());
         }
         return 0;
+    }
+    
+    inline std::string Value::AsSTRING() const {
+        if (data.empty()) return "";
+        // UTF-16 LE string, skip 4-byte size prefix
+        if (data.size() >= 4) {
+            const uint8_t* str_data = data.data() + 4;
+            size_t str_len = (data.size() - 4) / 2;
+            std::string s;
+            for (size_t i = 0; i < str_len; i++) {
+                uint16_t c = str_data[i * 2] | (str_data[i * 2 + 1] << 8);
+                if (c == 0) break;
+                if (c < 0x80) s += (char)c;
+                else if (c < 0x800) {
+                    s += (char)(0xC0 | (c >> 6));
+                    s += (char)(0x80 | (c & 0x3F));
+                } else {
+                    s += (char)(0xE0 | (c >> 12));
+                    s += (char)(0x80 | ((c >> 6) & 0x3F));
+                    s += (char)(0x80 | (c & 0x3F));
+                }
+            }
+            return s;
+        }
+        return "";
     }
     
     inline uint64_t Value::AsQWORD() const {
