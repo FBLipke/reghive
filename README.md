@@ -126,6 +126,101 @@ Windows Registry Hive (REGF) format:
 - VK record: Value key (contains data inline or pointer)
 - lf/lh/ri: Subkey indexes
 
+## Examples
+
+### 1. Read all boot entries from BCD
+```cpp
+RegHive::Parser hive;
+hive.Load("C:\\Boot\\BCD");
+
+RegHive::Key* root = hive.GetRoot();
+RegHive::Key* objects = root->FindSubkey("Objects");
+
+for (auto& obj : objects->subkeys) {
+    printf("Boot Entry: %s\n", obj->name.c_str());
+    
+    RegHive::Key* desc = obj->FindSubkey("Description");
+    if (desc) {
+        RegHive::Value* type = desc->FindValue("Type");
+        if (type) {
+            printf("  Type: 0x%X\n", type->AsDWORD());
+        }
+    }
+}
+```
+
+### 2. Modify TFTP Blocksize for WDS
+```cpp
+BCD::Parser bcd;
+bcd.Load("\\\\192.168.1.10\\REMINST\\Boot\\BCD");
+
+// Find WDS boot entry
+BCD::TFTPSettings settings;
+settings.blocksize = 8192;    // Increase for faster boot over WAN
+settings.windowsize = 16;
+settings.varwindow = true;
+
+bcd.SetTFTPSettings("{68d9e51c-a129-4ee1-9725-2ab00a957daf}", settings);
+bcd.Save("BCD_modified.bcd");
+```
+
+### 3. Change bootfile path
+```cpp
+RegHive::Parser hive;
+hive.Load("BCD");
+
+// Change bootfile for Windows Setup
+const char* path = "Objects/{7e2b9d3e-4cc6-4a21-bb1b-b7165bcb17d1}/Elements/1200004A";
+
+// Set new bootfile
+hive.SetString(path, "Element", L"\\WINDOWS\\System32\\boot\winload.exe");
+
+// Save
+std::ofstream out("BCD_new.bcd", std::ios::binary);
+out.write(reinterpret_cast<const char*>(hive.Data()), hive.Size());
+```
+
+### 4. Create new boot entry
+```cpp
+// Copy existing entry as template
+RegHive::Parser hive;
+hive.Load("BCD");
+
+// Find template
+RegHive::Key* tmpl = hive.FindKey("Objects/{9dea862c-5cdd-4e70-acc1-f32b344d4795}");
+
+// Create new entry by copying NK records (advanced)
+// Note: Full entry creation requires allocating new HBIN cells
+```
+
+### 5. Dump complete BCD structure
+```bash
+# CLI: Read and dump all entries
+./bin/bcdtool read /path/to/BCD
+
+# CLI: Create new BCD with TFTP optimization
+./bin/bcdtool create wds_bcd.bcd --blocksize 16384 --windowsize 32 --varwindow
+```
+
+### 6. Read RAM disk settings
+```cpp
+RegHive::Parser hive;
+hive.Load("BCD");
+
+const char* ramdisk_path = "Objects/{GUID}/Elements/14000006";
+RegHive::Key* ramdisk = hive.FindKey(ramdisk_path);
+
+if (ramdisk) {
+    RegHive::Value* elem = ramdisk->FindValue("Element");
+    if (elem && elem->type == RegHive::ValueType::REG_BINARY) {
+        printf("RAM Disk size (bytes): %zu\n", elem->data.size());
+        // First 8 bytes typically contain the size
+        uint64_t size = *reinterpret_cast<const uint64_t*>(elem->data.data());
+        printf("Size: %llu MB\n", size / (1024*1024));
+    }
+}
+```
+
 ## License
 
 GNU General Public License v3 (GPL-3.0)
