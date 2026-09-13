@@ -49,7 +49,7 @@ if (hive.GetDWORD("Objects/{GUID}/Description", "Type", &val)) {
 
 // Read String value
 std::wstring str;
-if (hive.GetString("Objects/{GUID}/Elements/1200004A", "Element", &str)) {
+if (hive.GetString("Objects/{GUID}/Elements/BCD_ELEM_DEVICE_BOOTFILE", "Element", &str)) {
     printf("Bootfile = %S\n", str.c_str());
 }
 
@@ -61,10 +61,10 @@ RegHive::Value* val = entry->FindValue("Type");
 
 // === Write Values ===
 // Modify DWORD in-place
-hive.SetDWORD("Objects/{GUID}/Description", "Type", 0x10200003);
+hive.SetDWORD("Objects/{GUID}/Description", "Type", BCD_TYPE_OS_LOADER);
 
 // Modify String in-place
-hive.SetString("Objects/{GUID}/Elements/1200004A", "Element", L"\\Boot\\x86\\boot.sdi");
+hive.SetString("Objects/{GUID}/Elements/BCD_ELEM_DEVICE_BOOTFILE", "Element", L"\\Boot\\x86\\boot.sdi");
 
 // Save modified BCD
 std::ofstream out("modified.bcd", std::ios::binary);
@@ -100,22 +100,22 @@ Windows BCD files contain boot entries identified by GUIDs:
 
 | Object | Type | Description |
 |--------|------|-------------|
-| `{9dea862c-5cdd-4e70-acc1-f32b344d4795}` | BCD Template | Base template for all boot entries |
-| `{4636856e-540f-4170-a130-a84776f4c654}` | Library | Boot managers and loaders |
-| `{3714d6c9-7bae-4bfa-a4cb-987915956ebc}` | Library | Device information |
-| `{68d9e51c-a129-4ee1-9725-2ab00a957daf}` | OS Loader | Windows PE |
-| `{7e2b9d3e-4cc6-4a21-bb1b-b7165bcb17d1}` | OS Loader | Windows Setup |
-| `{9dea862c-5cdd-4e70-acc1-f32b344d4795}` | OS Loader | Windows Boot Loader |
+| `BCD_OBJ_BOOT_MANAGER` | BCD Template | Base template for all boot entries |
+| `BCD_OBJ_BOOT_MANAGERS` | Library | Boot managers and loaders |
+| `BCD_OBJ_BOOT_LIBRARY` | Library | Device information |
+| `BCD_OBJ_EFI_BOOT_LOADER` | OS Loader | Windows PE |
+| `BCD_OBJ_OS_LOADER` | OS Loader | Windows Setup |
+| `BCD_OBJ_BOOT_MANAGER` | OS Loader | Windows Boot Loader |
 
 ### Common BCD Elements
 
 | Element ID | Type | Description |
 |------------|------|-------------|
-| `12000004` | String | Bootfile path (e.g. `\Boot\x86\boot.sdi`) |
-| `14000006` | Binary | RAM disk size |
-| `25000004` | DWORD | TFTP Blocksize |
-| `35000007` | DWORD | TFTP Windowsize |
-| `3600000B` | DWORD | Variable Window Size (0/1) |
+| `BCD_ELEM_DEVICE_BOOTFILE` | String | Bootfile path (e.g. `\Boot\x86\boot.sdi`) |
+| `BCD_ELEM_RAMDISK_SIZE` | Binary | RAM disk size |
+| `BCD_ELEM_TFTP_BLOCKSIZE` | DWORD | TFTP Blocksize |
+| `BCD_ELEM_TFTP_WINDOWSIZE` | DWORD | TFTP Windowsize |
+| `BCD_ELEM_NET_VARSIZE` | DWORD | Variable Window Size (0/1) |
 
 ## Format
 
@@ -160,7 +160,7 @@ settings.blocksize = 8192;    // Increase for faster boot over WAN
 settings.windowsize = 16;
 settings.varwindow = true;
 
-bcd.SetTFTPSettings("{68d9e51c-a129-4ee1-9725-2ab00a957daf}", settings);
+bcd.SetTFTPSettings("BCD_OBJ_EFI_BOOT_LOADER", settings);
 bcd.Save("BCD_modified.bcd");
 ```
 
@@ -170,7 +170,7 @@ RegHive::Parser hive;
 hive.Load("BCD");
 
 // Change bootfile for Windows Setup
-const char* path = "Objects/{7e2b9d3e-4cc6-4a21-bb1b-b7165bcb17d1}/Elements/1200004A";
+const char* path = "Objects/BCD_OBJ_OS_LOADER/Elements/BCD_ELEM_DEVICE_BOOTFILE";
 
 // Set new bootfile
 hive.SetString(path, "Element", L"\\WINDOWS\\System32\\boot\winload.exe");
@@ -187,7 +187,7 @@ RegHive::Parser hive;
 hive.Load("BCD");
 
 // Find template
-RegHive::Key* tmpl = hive.FindKey("Objects/{9dea862c-5cdd-4e70-acc1-f32b344d4795}");
+RegHive::Key* tmpl = hive.FindKey("Objects/BCD_OBJ_BOOT_MANAGER");
 
 // Create new entry by copying NK records (advanced)
 // Note: Full entry creation requires allocating new HBIN cells
@@ -207,7 +207,7 @@ RegHive::Key* tmpl = hive.FindKey("Objects/{9dea862c-5cdd-4e70-acc1-f32b344d4795
 RegHive::Parser hive;
 hive.Load("BCD");
 
-const char* ramdisk_path = "Objects/{GUID}/Elements/14000006";
+const char* ramdisk_path = "Objects/{GUID}/Elements/BCD_ELEM_RAMDISK_SIZE";
 RegHive::Key* ramdisk = hive.FindKey(ramdisk_path);
 
 if (ramdisk) {
