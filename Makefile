@@ -9,7 +9,7 @@ SRC_DIR = src
 INC_DIR = include
 REGHIV_DIR = RegHive
 BCD_DIR = BCD
-BIN_DIR = ../../../bin
+BIN_DIR = bin
 
 # All include paths
 INCLUDES = -I$(INC_DIR) -I$(REGHIV_DIR) -I$(BCD_DIR)
